@@ -84,7 +84,7 @@ impl Shape {
     }
 
     pub fn get_points_vector(&self) -> Vec<f32> {
-        let mut pts: Vec<f32> = Vec::with_capacity(self.points as usize);
+        let mut pts: Vec<f32> = Vec::with_capacity((self.points * 2) as usize);
         for i in 0..self.points {
             let p: Point  =self.get_point_pos(i);
             pts.push(p.x);
@@ -223,6 +223,13 @@ impl Canvas {
     }
 
     pub fn draw_lines(&self) {
+        // Get attribute locations
+        let pos_loc: u32 = self.context.get_attrib_location(&self.program, "position") as u32;
+        let size_attrib: u32 = self.context.get_attrib_location(&self.program, "size") as u32;
+
+        // Firefox has issues unless size attribute is disabled
+        self.context.disable_vertex_attrib_array(size_attrib);
+
         // Get lines vector
         let lines_vector: Vec<f32> = self.shape.get_lines_vector();
 
@@ -230,19 +237,22 @@ impl Canvas {
         let buffer: web_sys::WebGlBuffer = self.context.create_buffer().unwrap();
         self.context.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
 
-        let vertex_array: js_sys::Float32Array = unsafe{js_sys::Float32Array::view(&lines_vector)};
+        // Upload vertex array
+        let vertex_array: js_sys::Float32Array = unsafe {js_sys::Float32Array::view(&lines_vector)};
         self.context.buffer_data_with_array_buffer_view(
             WebGl2RenderingContext::ARRAY_BUFFER,
             &vertex_array,
             WebGl2RenderingContext::STATIC_DRAW
         );
 
-        let pos_loc: u32 = self.context.get_attrib_location(&self.program, "position") as u32;
         self.context.vertex_attrib_pointer_with_i32(pos_loc, 2, WebGl2RenderingContext::FLOAT, false, 0, 0);
         self.context.enable_vertex_attrib_array(pos_loc);
 
-        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, (lines_vector.len() / 2) as i32);
+        // Draw
+        let vertices: i32 = (self.shape.points * 2) as i32;
+        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, vertices);
     }
+
 
     pub fn draw_points(&self) {
         // Get position vector
@@ -272,7 +282,7 @@ impl Canvas {
             &size_array,
             WebGl2RenderingContext::STATIC_DRAW,
         );
-        let size_attrib = self.context.get_attrib_location(&self.program, "size") as u32;
+        let size_attrib: u32 = self.context.get_attrib_location(&self.program, "size") as u32;
         self.context.vertex_attrib_pointer_with_i32(size_attrib, 1, WebGl2RenderingContext::FLOAT, false, 0, 0);
         self.context.enable_vertex_attrib_array(size_attrib);
 
