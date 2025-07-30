@@ -241,7 +241,7 @@ impl Canvas {
         self.context.vertex_attrib_pointer_with_i32(pos_loc, 2, WebGl2RenderingContext::FLOAT, false, 0, 0);
         self.context.enable_vertex_attrib_array(pos_loc);
 
-        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, (self.shape.points * 4) as i32);
+        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, (lines_vector.len() / 2) as i32);
     }
 
     pub fn draw_points(&self) {
