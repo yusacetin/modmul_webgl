@@ -1,0 +1,39 @@
+<!--
+This file is part of Modular Multiplication WebGL.
+
+Modular Multiplication WebGL is free software: you can redistribute it
+and/or modify it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+
+Modular Multiplication WebGL is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with Modular 
+Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Modular Multiplication</title>
+        <link rel="stylesheet" href="style.css"/>
+    </head>
+    <body>
+        <script src="./pkg/cmm_webgl.js"></script>
+        <script type="module" src="script.js"></script>
+
+        <div id="control_panel">
+            <div>
+                <label>Points: </label>
+                <input id="points_input" type="number" min="0" value="500">
+            </div>
+            <div>
+                <label>Multiplier: </label>
+                <input id="mul_input" type="number" min="0" value="72">
+            </div>
+        </div>
+
+        <canvas id="webgl_canvas"></canvas>
+    </body>
+</html>
