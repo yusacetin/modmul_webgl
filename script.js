@@ -22,10 +22,10 @@ async function run() {
     await init();
 
     canvas = new Canvas();
-    //resize_webgl_canvas();
     canvas.clear();
     canvas.draw();
 
+    // change number of points by scrolling over the input
     let points_input = document.getElementById("points_input");
     points_input.addEventListener("change", redraw);
     points_input.addEventListener("wheel", function(e) {
@@ -44,10 +44,11 @@ async function run() {
         redraw();
     });
 
+    // change multiplier by scrolling over the input
     let mul_input = document.getElementById("mul_input");
     mul_input.addEventListener("change", redraw);
     mul_input.addEventListener("wheel", function(e) {
-        e.preventDefault(); // prevent page scrolling
+        e.preventDefault();
         const step = parseFloat(mul_input.step) || 1;
         const current = parseFloat(mul_input.value) || 0;
         if (e.deltaY < 0) {
@@ -57,25 +58,31 @@ async function run() {
         }
         redraw();
     });
-    
+
+    // zoom in and out by scrolling over the canvas
+    let webgl_canvas = document.getElementById("webgl_canvas");
+    webgl_canvas.addEventListener("wheel", function(e) {
+        e.preventDefault();
+        let step = canvas.get_r() / 5.0;
+        if (e.deltaY < 0) {step *= -1;}
+
+        let normalized_x = (e.clientX - window.innerWidth/2) / (window.innerWidth / 2);
+        let normalized_y = (window.innerHeight/2 - e.clientY) / (window.innerHeight / 2);
+
+        canvas.add_to_r(step, normalized_x, normalized_y);
+    });
+
+    let reset_view_button = document.getElementById("reset_view_button");
+    reset_view_button.addEventListener("click", () => {
+        canvas.reset();
+    });
+
+    // adjust to new window size when resized
+    window.addEventListener("resize", () => {
+        canvas.adjust_view();
+    });
+
     console.log("Loading complete");
-}
-
-function resize_webgl_canvas() {
-    const elem = document.getElementById("webgl_canvas");
-
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    elem.style.width = width + "px";
-    elem.style.height = height + "px";
-    console.log("height: " + height);
-
-    const dpr = window.devicePixelRatio || 1;
-    elem.width = width * dpr;
-    elem.height = height * dpr;
-
-    const gl = elem.getContext("webgl2");
-    gl.viewport(0, 0, elem.width, elem.height);
 }
 
 function redraw() {
@@ -84,5 +91,69 @@ function redraw() {
     canvas.clear();
     canvas.draw();
 }
+
+// Movement state logic
+
+let dragging = false;
+let last_x = 0.0;
+let last_y = 0.0;
+
+let webgl_canvas = document.getElementById("webgl_canvas");
+
+// When mouse button is pressed, we start the drag state
+webgl_canvas.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) {
+        // Only accept left click
+        return;
+    }
+    dragging = true;
+    last_x = e.clientX;
+    last_y = e.clientY;
+    webgl_canvas.style.cursor = "move";
+});
+
+// When mouse button is released, we end the drag state
+webgl_canvas.addEventListener("mouseup", (e) => {
+    if (e.button !== 0) {
+        return;
+    }
+    dragging = false;
+    webgl_canvas.style.cursor = "default";
+});
+
+// When cursor leaves the screen, we should end the drag state to not cause confusion
+webgl_canvas.addEventListener("mouseleave", (e) => {
+    if (e.button !== 0) {
+        return;
+    }
+    dragging = false;
+    webgl_canvas.style.cursor = "default";
+}); 
+
+// If in drag mode, move the canvas
+// If not, don't do anything
+webgl_canvas.addEventListener("mousemove", (e) => {
+    if (!dragging) {
+        return;
+    }
+
+    let w = window.innerWidth;
+    let h = window.innerHeight;
+
+    let dx = (e.clientX - last_x) * 2;
+    let dy = (last_y - e.clientY) * 2;
+    if (w >= h) {
+        dx /= h;
+        dy /= h;
+    } else {
+        dx /= w;
+        dy /= w;
+    }
+
+    last_x = e.clientX;
+    last_y = e.clientY;
+
+    canvas.move_shape(dx, dy);
+});
 
 run();

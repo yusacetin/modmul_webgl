@@ -71,9 +71,12 @@ impl Shape {
 
     pub fn get_point_pos(&self, i: u32) -> Point {
         let theta: f32 = (i as f32) * 2.0 * std::f32::consts::PI / (self.points as f32) + (std::f32::consts::PI / 2.0);
-        let mut x: f32 = self.r * theta.cos();
-        let mut y: f32 = self.r * theta.sin();
+        let mut x: f32 = self.r * theta.cos() + self.pos.x;
+        let mut y: f32 = self.r * theta.sin() + self.pos.y;
         
+        // Coordinates must be normalized because WebGL uses a value of 2.0 for
+        // both height and width of the screen. Here we use whichever length is smaller
+        // as the base and adjust the larger length so that it looks equal to the smaller.
         if (self.widescreen) {
             x = x * (self.dimensions.y / self.dimensions.x);
         } else {
@@ -192,6 +195,43 @@ impl Canvas {
         });
     }
 
+    // Meant to be called when window gets resized
+    pub fn adjust_view(&mut self) -> Result<bool, JsValue> {
+        // Get elements
+        let window: web_sys::Window = web_sys::window().unwrap();
+        let document: web_sys::Document = window.document().unwrap();
+        let canvas: HtmlCanvasElement = document.get_element_by_id("webgl_canvas").unwrap().dyn_into::<HtmlCanvasElement>()?;
+        let gl: WebGl2RenderingContext = canvas.get_context("webgl2")?.unwrap().dyn_into()?;
+
+        // Adjust to window size
+        let dpr: f64 = window.device_pixel_ratio();
+        let w: u32 = (window.inner_width()?.as_f64().unwrap() * dpr) as u32;
+        let h: u32 = (window.inner_height()?.as_f64().unwrap() * dpr) as u32;
+        canvas.set_width(w);
+        canvas.set_height(h);
+        gl.viewport(0, 0, w as i32, h as i32);
+
+        // Update object properties according to new demensions
+        self.shape.dimensions.x = canvas.width() as f32;
+        self.shape.dimensions.y = canvas.height() as f32;
+        self.shape.widescreen = (canvas.width() >= canvas.height());
+
+        // Draw again
+        self.clear();
+        self.draw();
+
+        return Ok(true);
+    }
+
+    pub fn reset(&mut self) {
+        self.shape.r = 0.92;
+        self.shape.pos = Point {x: 0.0, y: 0.0};
+
+        // Draw again
+        self.clear();
+        self.draw();
+    }
+
     pub fn set_points(&mut self, value: u32) {
         self.shape.points = value;
     }
@@ -288,6 +328,70 @@ impl Canvas {
 
         // Draw
         self.context.draw_arrays(WebGl2RenderingContext::POINTS, 0, self.shape.points as i32);
+    }
+
+    pub fn get_r(&self) -> f32 {
+        return self.shape.r;
+    }
+
+    pub fn set_r(&mut self, val: f32) {
+        self.shape.r = val;
+    }
+
+    // Increase radius and adjust the new location of the center so that
+    // the zoom effect appears as originating from the cursor location
+    // mx = mouse x, my = mouse y
+    pub fn add_to_r(&mut self, val: f32, mx: f32, my: f32) {
+        let prev_r: f32 = self.shape.r; // previous value of r will be needed in calculations
+        self.shape.r += val; // calculate new r
+
+        // We must denormalize shape position because position is saved in normalized coordinates
+        // Note: normalization refers to widescreen or narrowscreen adjustment because
+        // WebGL assumed a value of 2.0 equals both the height and width of the screen
+        let mut denorm_x: f32 = self.shape.pos.x;
+        let mut denorm_y: f32 = self.shape.pos.y;
+        if (self.shape.widescreen) {
+            denorm_x = self.shape.pos.x * self.shape.dimensions.y / self.shape.dimensions.x;
+        } else {
+            denorm_y = self.shape.pos.y * self.shape.dimensions.x / self.shape.dimensions.y;
+        }
+
+        let prev_dx: f32 = (mx - denorm_x).abs();
+        let prev_dy: f32 = (my - denorm_y).abs();
+
+        let dx: f32 = self.shape.r * prev_dx / prev_r - prev_dx;
+        let dy: f32 = self.shape.r * prev_dy / prev_r - prev_dy;
+
+        if (mx > denorm_x) {
+            denorm_x -= dx;
+        } else {
+            denorm_x += dx;
+        }
+
+        if (my > denorm_y) {
+            denorm_y -= dy;
+        } else {
+            denorm_y += dy;
+        }
+
+        if (self.shape.widescreen) {
+            self.shape.pos.x = denorm_x * self.shape.dimensions.x / self.shape.dimensions.y;
+            self.shape.pos.y = denorm_y;
+        } else {
+            self.shape.pos.x = denorm_x;
+            self.shape.pos.y = denorm_y * self.shape.dimensions.y / self.shape.dimensions.x;
+        }
+        
+        // Draw again
+        self.clear();
+        self.draw();
+    }
+
+    pub fn move_shape(&mut self, dx: f32, dy: f32) {
+        self.shape.pos.x += dx;
+        self.shape.pos.y += dy;
+        self.clear();
+        self.draw();
     }
 }
 
