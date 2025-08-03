@@ -50,68 +50,15 @@ pub struct Shape {
 #[wasm_bindgen]
 pub struct Canvas {
     context: WebGl2RenderingContext,
-    program: WebGlProgram,
+    point_program: WebGlProgram,
+    line_program: WebGlProgram,
     shape: Shape,
     bg: Color,
-    u_color_location: web_sys::WebGlUniformLocation,
+    u_point_color_location: web_sys::WebGlUniformLocation,
+    u_line_color_location: web_sys::WebGlUniformLocation
 }
 
 // Struct implementations
-
-#[wasm_bindgen]
-impl Shape {
-    pub fn set_color(&mut self, r: u8, g: u8, b: u8) {
-        self.color.r = r;
-        self.color.g = g;
-        self.color.b = b;
-    }
-
-    pub fn get_match_index(&self, i: u32) -> u32 {
-        return (i * self.mul) % self.points;
-    }
-
-    pub fn get_point_pos(&self, i: u32) -> Point {
-        let theta: f32 = (i as f32) * 2.0 * std::f32::consts::PI / (self.points as f32) + (std::f32::consts::PI / 2.0) - self.rotation;
-        let mut x: f32 = self.r * theta.cos() + self.pos.x;
-        let mut y: f32 = self.r * theta.sin() + self.pos.y;
-        
-        // Coordinates must be normalized because WebGL uses a value of 2.0 for
-        // both height and width of the screen. Here we use whichever length is smaller
-        // as the base and adjust the larger length so that it looks equal to the smaller.
-        if (self.widescreen) {
-            x = x * (self.dimensions.y / self.dimensions.x);
-        } else {
-            y = y * (self.dimensions.x / self.dimensions.y);
-        }
-
-        return Point{x, y};
-    }
-
-    pub fn get_points_vector(&self) -> Vec<f32> {
-        let mut pts: Vec<f32> = Vec::with_capacity((self.points * 2) as usize);
-        for i in 0..self.points {
-            let p: Point  =self.get_point_pos(i);
-            pts.push(p.x);
-            pts.push(p.y);
-        }
-        return pts;
-    }
-
-    pub fn get_lines_vector(&self) -> Vec<f32> {
-        let mut lines: Vec<f32> = Vec::with_capacity((self.points * 4) as usize);
-        for i in 0..self.points {
-            let p0: Point = self.get_point_pos(i);
-            let matchi: u32 = self.get_match_index(i);
-            let p1: Point = self.get_point_pos(matchi);
-            
-            lines.push(p0.x);
-            lines.push(p0.y);
-            lines.push(p1.x);
-            lines.push(p1.y);
-        }
-        return lines;
-    }
-}
 
 #[wasm_bindgen]
 impl Canvas {
@@ -123,34 +70,26 @@ impl Canvas {
         let canvas: HtmlCanvasElement = document.get_element_by_id("webgl_canvas").unwrap().dyn_into::<HtmlCanvasElement>()?;
         let gl: WebGl2RenderingContext = canvas.get_context("webgl2")?.unwrap().dyn_into()?;
 
-        // Compile vertex shader
-        let vertex_shader_source: &'static str = r#"#version 300 es
-            in vec2 position;
-            in float size;
-            void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
-                gl_PointSize = size;
-            }
-        "#;
-        let vertex_shader: WebGlShader = compile_shader(&gl, vertex_shader_source, WebGl2RenderingContext::VERTEX_SHADER).map_err(|e| JsValue::from_str(&e))?;
+        // Compile point shader
+        let point_shader_src: &str = include_str!("point_shader.vert");
+        let point_shader: WebGlShader = compile_shader(&gl, point_shader_src, WebGl2RenderingContext::VERTEX_SHADER).map_err(|e: String| JsValue::from_str(&e))?;
 
-        // Compile fragment shader
-        let fragment_shader_source: &'static str = r#"#version 300 es
-            precision mediump float;
-            uniform vec3 u_color;
-            out vec4 outColor;
-            void main() {
-                outColor = vec4(u_color, 1.0);
-            }
-        "#;
-        let fragment_shader: WebGlShader = compile_shader(&gl, fragment_shader_source, WebGl2RenderingContext::FRAGMENT_SHADER).map_err(|e| JsValue::from_str(&e))?;
+        // Compile line shader
+        let line_shader_src: &str = include_str!("line_shader.vert");
+        let line_shader: WebGlShader = compile_shader(&gl, line_shader_src, WebGl2RenderingContext::VERTEX_SHADER).map_err(|e: String| JsValue::from_str(&e))?;
+
+        // Compile color shader
+        let color_shader_src: &str = include_str!("color_shader.frag");
+        let color_shader: WebGlShader = compile_shader(&gl, color_shader_src, WebGl2RenderingContext::FRAGMENT_SHADER).map_err(|e: String| JsValue::from_str(&e))?;
 
         // Link WebGL program
-        let program: WebGlProgram = link_program(&gl, &vertex_shader, &fragment_shader).map_err(|e| JsValue::from_str(&e))?;
-        gl.use_program(Some(&program));
+        let point_program: WebGlProgram = link_program(&gl, &point_shader, &color_shader).map_err(|e: String| JsValue::from_str(&e))?;
+        let line_program: WebGlProgram = link_program(&gl, &line_shader, &color_shader).map_err(|e: String| JsValue::from_str(&e))?;
+        gl.use_program(Some(&point_program)); // call from drawing function instead
 
         // Save uniform color location so that we can change the foreground color later without having to recompile fragment shaders
-        let u_color_location: web_sys::WebGlUniformLocation = gl.get_uniform_location(&program, "u_color").ok_or("Failed to find u_color uniform")?;
+        let u_point_color_location: web_sys::WebGlUniformLocation = gl.get_uniform_location(&point_program, "u_color").ok_or("Failed to find u_color uniform")?;
+        let u_line_color_location: web_sys::WebGlUniformLocation = gl.get_uniform_location(&line_program, "u_color").ok_or("Failed to find u_color uniform")?;
 
         // Adjust to window size
         let dpr: f64 = window.device_pixel_ratio();
@@ -186,14 +125,16 @@ impl Canvas {
         // Return self
         return Ok(Canvas {
             context: gl,
-            program: program,
+            point_program: point_program,
+            line_program: line_program,
             shape,
             bg: Color {
                 r: 24,
                 g: 24,
                 b: 24
             },
-            u_color_location: u_color_location
+            u_point_color_location: u_point_color_location,
+            u_line_color_location: u_line_color_location
         });
     }
 
@@ -262,11 +203,15 @@ impl Canvas {
     }
 
     pub fn update_fg_color(&self) {
-        self.context.use_program(Some(&self.program));
         let red: f32 = normalize_u8_to_1(self.shape.color.r);
         let green: f32 = normalize_u8_to_1(self.shape.color.g);
         let blue: f32 = normalize_u8_to_1(self.shape.color.b);
-        self.context.uniform3f(Some(&self.u_color_location), red, green, blue);
+
+        self.context.use_program(Some(&self.point_program));
+        self.context.uniform3f(Some(&self.u_point_color_location), red, green, blue);
+
+        self.context.use_program(Some(&self.line_program));
+        self.context.uniform3f(Some(&self.u_line_color_location), red, green, blue);
     }
 
     pub fn draw(&self) {
@@ -276,79 +221,31 @@ impl Canvas {
     }
 
     pub fn draw_lines(&self) {
-        // Get attribute locations
-        let pos_loc: u32 = self.context.get_attrib_location(&self.program, "position") as u32;
-        let size_attrib: u32 = self.context.get_attrib_location(&self.program, "size") as u32;
-
-        // Firefox has issues unless size attribute is disabled
-        self.context.disable_vertex_attrib_array(size_attrib);
-
-        // Get lines vector
-        let lines_vector: Vec<f32> = self.shape.get_lines_vector();
-
-        // Create buffer
-        let buffer: web_sys::WebGlBuffer = self.context.create_buffer().unwrap();
-        self.context.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
-
-        // Upload vertex array
-        let vertex_array: js_sys::Float32Array = unsafe {js_sys::Float32Array::view(&lines_vector)};
-        self.context.buffer_data_with_array_buffer_view(
-            WebGl2RenderingContext::ARRAY_BUFFER,
-            &vertex_array,
-            WebGl2RenderingContext::STATIC_DRAW
-        );
-
-        self.context.vertex_attrib_pointer_with_i32(pos_loc, 2, WebGl2RenderingContext::FLOAT, false, 0, 0);
-        self.context.enable_vertex_attrib_array(pos_loc);
-
-        // Draw
-        let vertices: i32 = (self.shape.points * 2) as i32;
-        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, vertices);
+        self.context.use_program(Some(&self.line_program));
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_points").expect("Error")), self.shape.points as f32);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_radius").expect("Error")), self.shape.r);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_rotation").expect("Error")), self.shape.rotation);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_widescreen").expect("Error")), if self.shape.widescreen { 1 } else { 0 });
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_multiplier").expect("Error")), self.shape.mul as f32);
+        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, (self.shape.points * 2) as i32);
     }
 
-
     pub fn draw_points(&self) {
-        // Get position vector
-        let pos_vector: Vec<f32> = self.shape.get_points_vector();
-
-        // Upload position buffer
-        let pos_buffer: web_sys::WebGlBuffer = self.context.create_buffer().unwrap();
-        self.context.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&pos_buffer));
-        let pos_array: js_sys::Float32Array = unsafe {js_sys::Float32Array::view(&pos_vector)};
-        self.context.buffer_data_with_array_buffer_view(
-            WebGl2RenderingContext::ARRAY_BUFFER,
-            &pos_array,
-            WebGl2RenderingContext::STATIC_DRAW
-        );
-        let pos_attrib: u32 = self.context.get_attrib_location(&self.program, "position") as u32;
-        self.context.vertex_attrib_pointer_with_i32(pos_attrib, 2, WebGl2RenderingContext::FLOAT, false, 0, 0);
-        self.context.enable_vertex_attrib_array(pos_attrib);
-
-        // Upload size buffer
-        let size_value: f32 = self.shape.point_size;
-        let size_vector: Vec<f32> = vec![size_value; self.shape.points as usize];
-        let size_buffer: web_sys::WebGlBuffer = self.context.create_buffer().unwrap();
-        self.context.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&size_buffer));
-        let size_array: js_sys::Float32Array = unsafe { js_sys::Float32Array::view(&size_vector) };
-        self.context.buffer_data_with_array_buffer_view(
-            WebGl2RenderingContext::ARRAY_BUFFER,
-            &size_array,
-            WebGl2RenderingContext::STATIC_DRAW,
-        );
-        let size_attrib: u32 = self.context.get_attrib_location(&self.program, "size") as u32;
-        self.context.vertex_attrib_pointer_with_i32(size_attrib, 1, WebGl2RenderingContext::FLOAT, false, 0, 0);
-        self.context.enable_vertex_attrib_array(size_attrib);
-
-        // Draw
+        self.context.use_program(Some(&self.point_program));
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_points").expect("Error")), self.shape.points as f32);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_radius").expect("Error")), self.shape.r);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_rotation").expect("Error")), self.shape.rotation);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.point_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.point_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.point_program, "u_widescreen").expect("Error")), if self.shape.widescreen { 1 } else { 0 });
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_point_size").expect("Error")), self.shape.point_size);
         self.context.draw_arrays(WebGl2RenderingContext::POINTS, 0, self.shape.points as i32);
     }
 
     pub fn get_r(&self) -> f32 {
         return self.shape.r;
-    }
-
-    pub fn set_r(&mut self, val: f32) {
-        self.shape.r = val;
     }
 
     // Increase radius and adjust the new location of the center so that
@@ -415,7 +312,7 @@ fn compile_shader(gl: &WebGl2RenderingContext, source: &str, shader_type: u32) -
     gl.shader_source(&shader, source);
     gl.compile_shader(&shader);
 
-    if gl.get_shader_parameter(&shader, WebGl2RenderingContext::COMPILE_STATUS).as_bool().unwrap_or(false) {
+    if (gl.get_shader_parameter(&shader, WebGl2RenderingContext::COMPILE_STATUS).as_bool().unwrap_or(false)) {
         return Ok(shader);
     } else {
         return Err(gl.get_shader_info_log(&shader).unwrap_or_default());
@@ -428,7 +325,7 @@ fn link_program(gl: &WebGl2RenderingContext, vertex_shader: &WebGlShader, fragme
     gl.attach_shader(&program, fragment_shader);
     gl.link_program(&program);
 
-    if gl.get_program_parameter(&program, WebGl2RenderingContext::LINK_STATUS).as_bool().unwrap_or(false) {
+    if (gl.get_program_parameter(&program, WebGl2RenderingContext::LINK_STATUS).as_bool().unwrap_or(false)) {
         Ok(program)
     } else {
         Err(gl.get_program_info_log(&program).unwrap_or_default())
