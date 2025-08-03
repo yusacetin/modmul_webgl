@@ -33,8 +33,9 @@ label {
     max-width: 16em;
 }
 
-input {
-    max-width: 6em;
+input[type="number"] {
+    width: 9em;
+    max-width: 9em;
     font-size: 1.25em;
     margin-bottom: 8px;
     width: 100px;
@@ -45,19 +46,20 @@ input {
     border: black solid 2px;
 }
 
-input:focus {
+input[type="number"]:focus {
     border: rgb(25, 118, 210) solid 2px;
 }
 
 button {
     font-size: 1.1em;
-    border-radius: 8px;
+    border-radius: 9px;
     background-color: rgb(240, 240, 240);
     border: rgb(24, 24, 24) solid 2px;
     padding-top: 2px;
     padding-bottom: 2px;
     padding-right: 10px;
     padding-left: 10px;
+    margin-top: 10px;
 }
 
 button:hover {
@@ -70,4 +72,28 @@ button:active {
 
 canvas {
     display: block;
+}
+
+#rotation_label {
+    display: inline-block;
+    width: 2em;
+    text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  background: #ffffff;
+  height: 6px;
+  border-radius: 3px;
+  width: 12em;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border: 2px solid #3498db;
+  border-radius: 50%;
+  cursor: pointer;
 }

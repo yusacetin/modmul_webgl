@@ -43,7 +43,8 @@ pub struct Shape {
     pos: Point,
     point_size: f32,
     dimensions: Point,
-    widescreen: bool
+    widescreen: bool,
+    rotation: f32
 }
 
 #[wasm_bindgen]
@@ -70,7 +71,7 @@ impl Shape {
     }
 
     pub fn get_point_pos(&self, i: u32) -> Point {
-        let theta: f32 = (i as f32) * 2.0 * std::f32::consts::PI / (self.points as f32) + (std::f32::consts::PI / 2.0);
+        let theta: f32 = (i as f32) * 2.0 * std::f32::consts::PI / (self.points as f32) + (std::f32::consts::PI / 2.0) - self.rotation;
         let mut x: f32 = self.r * theta.cos() + self.pos.x;
         let mut y: f32 = self.r * theta.sin() + self.pos.y;
         
@@ -178,7 +179,8 @@ impl Canvas {
                 x: canvas.width() as f32,
                 y: canvas.height() as f32
             },
-            widescreen: (canvas.width() >= canvas.height())
+            widescreen: (canvas.width() >= canvas.height()),
+            rotation: 0.0
         };
 
         // Return self
@@ -226,6 +228,7 @@ impl Canvas {
     pub fn reset(&mut self) {
         self.shape.r = 0.92;
         self.shape.pos = Point {x: 0.0, y: 0.0};
+        self.shape.rotation = 0.0;
 
         // Draw again
         self.clear();
@@ -238,6 +241,16 @@ impl Canvas {
 
     pub fn set_multiplier(&mut self, value: u32) {
         self.shape.mul = value;
+    }
+
+    pub fn set_rotation(&mut self, deg: f32) {
+        // first convert degrees to radians
+        let rad: f32 = deg * std::f32::consts::PI / 180.0;
+        self.shape.rotation = rad;
+
+        // Draw again
+        self.clear();
+        self.draw();
     }
 
     pub fn clear(&self) {

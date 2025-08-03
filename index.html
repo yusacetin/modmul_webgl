@@ -26,14 +26,20 @@ Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
         <div id="control_panel">
             <div>
                 <label>Points: </label>
-                <input id="points_input" type="number" min="0" value="500">
+                <input id="points_input" type="number" min="0" value="500"/>
             </div>
             <div>
                 <label>Multiplier: </label>
-                <input id="mul_input" type="number" min="0" value="72">
+                <input id="mul_input" type="number" min="0" value="72"/>
             </div>
             <div>
-                <button id="reset_view_button" class="waves-effect waves-light btn">Reset View</button>
+                <label>Rotation: </label>
+                <input id="rotation_slider" type="range" min="-180" max="180" value="0"/>
+                <label id="rotation_label">0</label>
+                <label>°</label>
+            </div>
+            <div>
+                <button id="reset_view_button">Reset View</button>
             </div>
         </div>
 

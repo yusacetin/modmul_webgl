@@ -74,7 +74,15 @@ async function run() {
 
     let reset_view_button = document.getElementById("reset_view_button");
     reset_view_button.addEventListener("click", () => {
+        document.getElementById("rotation_slider").value = 0;
+        document.getElementById("rotation_label").textContent = 0;
         canvas.reset();
+    });
+
+    let rotation_slider = document.getElementById("rotation_slider");
+    rotation_slider.addEventListener("input", function() {
+        document.getElementById("rotation_label").textContent = this.value;
+        canvas.set_rotation(this.value);
     });
 
     // adjust to new window size when resized
