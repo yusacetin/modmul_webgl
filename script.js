@@ -85,6 +85,14 @@ async function run() {
         canvas.set_rotation(this.value);
     });
 
+    // set enable draw outline
+    let draw_outline_cb = document.getElementById("draw_outline_cb");
+    draw_outline_cb.addEventListener("change", (e) => {
+        let val = draw_outline_cb.checked;
+        canvas.set_enable_outline(val);
+        redraw();
+    });
+
     // adjust to new window size when resized
     window.addEventListener("resize", () => {
         canvas.adjust_view();

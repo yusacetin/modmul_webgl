@@ -80,6 +80,10 @@ canvas {
     text-align: right;
 }
 
+input[type="checkbox"] {
+    margin-top: 10px;
+}
+
 input[type="range"] {
   -webkit-appearance: none;
   background: #ffffff;
