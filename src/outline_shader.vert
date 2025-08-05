@@ -12,7 +12,7 @@ void main() {
 
     if (gl_VertexID == 0) {
         // Center of fan
-        gl_Position = vec4(u_center.x, u_center.y, 0.0, 1.0);
+        gl_Position = vec4(u_center.x * u_x_norm, u_center.y * u_y_norm, 0.0, 1.0);
     } else {
         // Perimeter vertex
         float segment = float(gl_VertexID - 1);
