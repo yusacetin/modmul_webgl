@@ -14,10 +14,17 @@ You should have received a copy of the GNU General Public License along with Mod
 Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 */
 
+html {
+    overflow: hidden;
+    height: 100%;
+}
+
 body {
     margin: 0;
     padding: 0;
     font-size: 1.25em;
+    overflow: hidden;
+    height: 100%;
 }
 
 label {
@@ -30,15 +37,14 @@ label {
     position: absolute;
     border-radius: 0 0 20px 0;
     line-height: 1.2em;
-    max-width: 16em;
+    max-width: 18em;
 }
 
 input[type="number"] {
-    width: 9em;
-    max-width: 9em;
     font-size: 1.25em;
+    width: 6em;
+    max-width: 6em;
     margin-bottom: 8px;
-    width: 100px;
     border-radius: 8px;
     padding: 2px 5px;
     margin-left: 5px;
@@ -89,7 +95,7 @@ input[type="range"] {
   background: #ffffff;
   height: 6px;
   border-radius: 3px;
-  width: 12em;
+  width: 14em;
 }
 
 input[type="range"]::-webkit-slider-thumb {

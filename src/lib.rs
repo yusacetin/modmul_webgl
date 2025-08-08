@@ -277,13 +277,13 @@ impl Canvas {
 
     pub fn draw_lines(&self) {
         self.context.use_program(Some(&self.line_program));
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_points").expect("Error")), self.shape.points as f32);
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_points").expect("Error")), self.shape.points as i32);
         self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_radius").expect("Error")), self.shape.r);
         self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_rotation").expect("Error")), self.shape.rotation);
         self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
         self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
         self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_widescreen").expect("Error")), if self.shape.widescreen { 1 } else { 0 });
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_multiplier").expect("Error")), self.shape.mul as f32);
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_multiplier").expect("Error")), self.shape.mul as i32);
         self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, (self.shape.points * 2) as i32);
     }
 

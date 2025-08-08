@@ -10,11 +10,11 @@ uniform bool u_widescreen;
 uniform float u_point_size;
 
 void main() {
-    float pi = 3.14159265359;
+    float pi = 3.1415926535897932384626;
     float i = float(gl_VertexID);
-    float theta = i * 2.0 * pi / u_points + (pi / 2.0) - u_rotation;
+    float theta =  i * 2.0 * pi / u_points + u_rotation + (pi / 2.0);
 
-    float x = cos(theta) * u_radius + u_position.x;
+    float x = -1.0 * cos(theta) * u_radius + u_position.x;
     float y = sin(theta) * u_radius + u_position.y;
 
     // Aspect-ratio correction
