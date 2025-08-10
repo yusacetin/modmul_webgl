@@ -17,6 +17,7 @@ Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 html {
     overflow: hidden;
     height: 100%;
+    
 }
 
 body {
@@ -25,55 +26,91 @@ body {
     font-size: 1.25em;
     overflow: hidden;
     height: 100%;
+    font-family: monospace;
 }
 
 label {
     color: rgb(240, 240, 240);
 }
 
+.noselect {
+    -ms-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+span {
+    color: rgb(240, 240, 240);
+}
+
 #control_panel{
     padding: 10px 10px;
     background-color: rgba(32, 32, 32, 0.95);
-    position: absolute;
     border-radius: 0 0 20px 0;
     line-height: 1.2em;
-    max-width: 18em;
+    max-width: 30em;
+}
+
+.panel_row {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+#control_panel_wrapper {
+    position: absolute;
+}
+
+#show_button {
+    margin-left: 10px;
+    margin-top: 10px;
+}
+
+#hide_button {
+    float: right;
 }
 
 input[type="number"] {
     font-size: 1.25em;
     width: 6em;
     max-width: 6em;
-    margin-bottom: 8px;
     border-radius: 8px;
-    padding: 2px 5px;
+    padding: 2px 6px;
     margin-left: 5px;
     outline: none;
-    border: black solid 2px;
+    border: #585858 solid 2px;
+    background-color: #3B3B3B;
+    color: #FAFAFA;
+    font-family: monospace;
 }
 
 input[type="number"]:focus {
     border: rgb(25, 118, 210) solid 2px;
 }
 
+input[type="number"]:disabled {
+    background-color: #202020;
+    color: #606060;
+}
+
 button {
-    font-size: 1.1em;
+    font-size: 1.2em;
+    font-family: monospace;
     border-radius: 9px;
-    background-color: rgb(240, 240, 240);
-    border: rgb(24, 24, 24) solid 2px;
+    background-color: #3B3B3B;
+    border: #585858 solid 2px;
     padding-top: 2px;
     padding-bottom: 2px;
     padding-right: 10px;
     padding-left: 10px;
-    margin-top: 10px;
+    color: #FAFAFA;
 }
 
 button:hover {
-    background-color: rgb(210, 210, 210);
+    background-color: #505050;
 }
 
 button:active {
-    background-color: rgb(180, 180, 180);
+    background-color: #656565;
 }
 
 canvas {
@@ -84,10 +121,6 @@ canvas {
     display: inline-block;
     width: 2em;
     text-align: right;
-}
-
-input[type="checkbox"] {
-    margin-top: 10px;
 }
 
 input[type="range"] {

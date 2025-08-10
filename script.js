@@ -22,12 +22,16 @@ async function run() {
     await init();
 
     canvas = new Canvas();
-    canvas.clear();
     canvas.draw();
 
     // change number of points by scrolling over the input
     let points_input = document.getElementById("points_input");
-    points_input.addEventListener("change", redraw);
+    points_input.addEventListener("change", (e) => {
+        if (points_input.value < 1) {
+            points_input.value = 1;
+        }
+        canvas.set_points(document.getElementById("points_input").value);
+    });
     points_input.addEventListener("wheel", function(e) {
         e.preventDefault(); // prevent page scrolling
         const step = parseFloat(points_input.step) || 1;
@@ -41,12 +45,17 @@ async function run() {
                 points_input.value = current - step;
             }
         }
-        redraw();
+        canvas.set_points(points_input.value);
     });
 
     // change multiplier by scrolling over the input
     let mul_input = document.getElementById("mul_input");
-    mul_input.addEventListener("change", redraw);
+    mul_input.addEventListener("change", (e) => {
+        if (mul_input.value < 0) {
+            mul_input.value = 0;
+        }
+        canvas.set_multiplier(document.getElementById("mul_input").value);
+    });
     mul_input.addEventListener("wheel", function(e) {
         e.preventDefault();
         const step = parseFloat(mul_input.step) || 1;
@@ -54,9 +63,11 @@ async function run() {
         if (e.deltaY < 0) {
             mul_input.value = current + step;
         } else {
-            mul_input.value = current - step;
+            if (current - step >= parseInt(mul_input.getAttribute("min"))) {
+                mul_input.value = current - step;
+            }
         }
-        redraw();
+        canvas.set_multiplier(mul_input.value);
     });
 
     // zoom in and out by scrolling over the canvas
@@ -90,7 +101,71 @@ async function run() {
     draw_outline_cb.addEventListener("change", (e) => {
         let val = draw_outline_cb.checked;
         canvas.set_enable_outline(val);
-        redraw();
+    });
+
+    // change line width
+    let line_width_input = document.getElementById("line_width");
+    line_width_input.addEventListener("wheel", (e) => {
+        e.preventDefault(); // prevent page scrolling
+        if (line_width_input.getAttribute("disabled")) {
+            return;
+        }
+        const step = parseFloat(line_width_input.step) || 1;
+        const current = parseFloat(line_width_input.value) || 0;
+        if (e.deltaY < 0) {
+            if (current + step >= 0) {
+                line_width_input.value = current + step;
+            }
+        } else {
+            if (current - step >= 0) {
+                line_width_input.value = current - step;
+            }
+        }
+        
+        let val = line_width_input.value;
+        if (val <= 0) {
+            val = 0.0001;
+            line_width_input.value = 1;
+        } else {
+            val /= 10000.0;
+        }
+        canvas.set_rect_width(val);
+    });
+    line_width_input.addEventListener("change", (e) => {
+        let val = line_width_input.value;
+        if (val <= 0) {
+            val = 0.0001;
+            line_width_input.value = 1;
+        } else {
+            val /= 10000.0;
+        }
+        canvas.set_rect_width(val);
+    });
+
+    // change shader (lines)
+    let lines_rb = document.getElementById("lines_rb");
+    lines_rb.addEventListener("change", (e) => {
+        let val = !lines_rb.checked;
+        canvas.set_use_rects(val);
+
+        if (val) {
+            line_width_input.removeAttribute("disabled");
+        } else {
+            line_width_input.setAttribute("disabled", true);
+        }
+    });
+
+    // change shader (rects)
+    let rects_rb = document.getElementById("rects_rb");
+    rects_rb.addEventListener("change", (e) => {
+        let val = rects_rb.checked;
+        canvas.set_use_rects(val);
+
+        if (val) {
+            line_width_input.removeAttribute("disabled");
+        } else {
+            line_width_input.setAttribute("disabled", true);
+        }
     });
 
     // adjust to new window size when resized
@@ -98,14 +173,20 @@ async function run() {
         canvas.adjust_view();
     });
 
-    console.log("Loading complete");
-}
+    // hide or show panel
+    let hide_button = document.getElementById("hide_button");
+    let show_button = document.getElementById("show_button");
+    let panel = document.getElementById("control_panel");
+    hide_button.addEventListener("click", (e) => {
+        show_button.removeAttribute("style");
+        panel.setAttribute("style", "display:none;")
+    });
+    show_button.addEventListener("click", (e) => {
+        show_button.setAttribute("style", "display:none;");
+        panel.removeAttribute("style");
+    });
 
-function redraw() {
-    canvas.set_points(document.getElementById("points_input").value);
-    canvas.set_multiplier(document.getElementById("mul_input").value);
-    canvas.clear();
-    canvas.draw();
+    console.log("Loading complete");
 }
 
 // Movement state logic
@@ -140,6 +221,12 @@ webgl_canvas.addEventListener("mouseup", (e) => {
 // When cursor leaves the screen, we should end the drag state to not cause confusion
 webgl_canvas.addEventListener("mouseleave", (e) => {
     if (e.button !== 0) {
+        return;
+    }
+    if (e.relatedTarget && e.relatedTarget.id === "control_panel") {
+        return;
+    }
+    if (e.relatedTarget && e.relatedTarget.id === "show_button") {
         return;
     }
     dragging = false;

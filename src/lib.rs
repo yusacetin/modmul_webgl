@@ -17,7 +17,7 @@ Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 #![allow(unused_parens)]
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{HtmlCanvasElement, WebGlUniformLocation, WebGl2RenderingContext, WebGlShader, WebGlProgram, console};
+use web_sys::{Window, Document, HtmlCanvasElement, WebGlUniformLocation, WebGl2RenderingContext, WebGlShader, WebGlProgram};
 
 // Struct declarations
 
@@ -46,7 +46,9 @@ pub struct Shape {
     widescreen: bool,
     rotation: f32,
     outline_width: f32,
-    outline_segments: i32
+    outline_segments: i32,
+    use_rects_instead_of_lines: bool,
+    rect_width: f32
 }
 
 #[wasm_bindgen]
@@ -55,11 +57,12 @@ pub struct Canvas {
     point_program: WebGlProgram,
     line_program: WebGlProgram,
     outline_program: WebGlProgram,
+    rect_program: WebGlProgram,
     shape: Shape,
     bg: Color,
-    u_point_color_location: web_sys::WebGlUniformLocation,
-    u_line_color_location: web_sys::WebGlUniformLocation,
-    u_outline_color_location: web_sys::WebGlUniformLocation,
+    u_point_color_location: WebGlUniformLocation,
+    u_line_color_location: WebGlUniformLocation,
+    u_outline_color_location: WebGlUniformLocation,
     enable_outline: bool
 }
 
@@ -70,8 +73,8 @@ impl Canvas {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<Canvas, JsValue> {
         // Get elements
-        let window: web_sys::Window = web_sys::window().unwrap();
-        let document: web_sys::Document = window.document().unwrap();
+        let window: Window = web_sys::window().unwrap();
+        let document: Document = window.document().unwrap();
         let canvas: HtmlCanvasElement = document.get_element_by_id("webgl_canvas").unwrap().dyn_into::<HtmlCanvasElement>()?;
         let gl: WebGl2RenderingContext = canvas.get_context("webgl2")?.unwrap().dyn_into()?;
 
@@ -87,6 +90,10 @@ impl Canvas {
         let outline_shader_src: &str = include_str!("outline_shader.vert");
         let outline_shader: WebGlShader = compile_shader(&gl, outline_shader_src, WebGl2RenderingContext::VERTEX_SHADER).map_err(|e: String| JsValue::from_str(&e))?;
 
+        // Compile rectangle shader
+        let rect_shader_src: &str = include_str!("rect_shader.vert");
+        let rect_shader: WebGlShader = compile_shader(&gl, rect_shader_src, WebGl2RenderingContext::VERTEX_SHADER).map_err(|e: String| JsValue::from_str(&e))?;
+
         // Compile color shader
         let color_shader_src: &str = include_str!("color_shader.frag");
         let color_shader: WebGlShader = compile_shader(&gl, color_shader_src, WebGl2RenderingContext::FRAGMENT_SHADER).map_err(|e: String| JsValue::from_str(&e))?;
@@ -95,17 +102,22 @@ impl Canvas {
         let point_program: WebGlProgram = link_program(&gl, &point_shader, &color_shader).map_err(|e: String| JsValue::from_str(&e))?;
         let line_program: WebGlProgram = link_program(&gl, &line_shader, &color_shader).map_err(|e: String| JsValue::from_str(&e))?;
         let outline_program: WebGlProgram = link_program(&gl, &outline_shader, &color_shader).map_err(|e: String| JsValue::from_str(&e))?;
+        let rect_program: WebGlProgram = link_program(&gl, &rect_shader, &color_shader).map_err(|e: String| JsValue::from_str(&e))?;
         gl.use_program(Some(&point_program)); // call from drawing function instead
 
         // Save uniform color location so that we can change the foreground color later easily
-        let u_point_color_location: web_sys::WebGlUniformLocation = gl.get_uniform_location(&point_program, "u_color").ok_or("Failed to find u_color uniform")?;
-        let u_line_color_location: web_sys::WebGlUniformLocation = gl.get_uniform_location(&line_program, "u_color").ok_or("Failed to find u_color uniform")?;
-        let u_outline_color_location: web_sys::WebGlUniformLocation = gl.get_uniform_location(&outline_program, "u_color").ok_or("Failed to find u_color uniform")?;
+        let u_point_color_location: WebGlUniformLocation = gl.get_uniform_location(&point_program, "u_color").ok_or("Failed to find u_color uniform")?;
+        let u_line_color_location: WebGlUniformLocation = gl.get_uniform_location(&line_program, "u_color").ok_or("Failed to find u_color uniform")?;
+        let u_outline_color_location: WebGlUniformLocation = gl.get_uniform_location(&outline_program, "u_color").ok_or("Failed to find u_color uniform")?;
 
         // Adjust to window size
         let dpr: f64 = window.device_pixel_ratio();
-        let w: u32 = (window.inner_width()?.as_f64().unwrap() * dpr) as u32;
-        let h: u32 = (window.inner_height()?.as_f64().unwrap() * dpr) as u32;
+        let visual_viewport: js_sys::Object = window.get("visualViewport").unwrap();
+        let w_css: f64 = js_sys::Reflect::get(&visual_viewport, &JsValue::from_str("width")).unwrap().as_f64().unwrap();
+        let h_css: f64 = js_sys::Reflect::get(&visual_viewport, &JsValue::from_str("height")).unwrap().as_f64().unwrap();
+
+        let w: u32 = (w_css * dpr) as u32;
+        let h: u32 = (h_css * dpr) as u32;
         canvas.set_width(w);
         canvas.set_height(h);
         gl.viewport(0, 0, w as i32, h as i32);
@@ -131,8 +143,10 @@ impl Canvas {
             },
             widescreen: (canvas.width() >= canvas.height()),
             rotation: 0.0,
-            outline_width: 0.005,
-            outline_segments: 1440
+            outline_width: 0.0035,
+            outline_segments: 1440,
+            use_rects_instead_of_lines: true,
+            rect_width: 0.002
         };
 
         // Return self
@@ -141,6 +155,7 @@ impl Canvas {
             point_program: point_program,
             line_program: line_program,
             outline_program: outline_program,
+            rect_program: rect_program,
             shape,
             bg: Color {
                 r: 24,
@@ -154,18 +169,83 @@ impl Canvas {
         });
     }
 
+
+    //////////////////////////////////////////////
+    // Public Functions (can be called from JS) //
+    //////////////////////////////////////////////
+
+    pub fn draw(&self) {
+        self.clear();
+        self.update_fg_color();
+        if (self.enable_outline) {
+            self.draw_outline();
+        }
+        if (self.shape.use_rects_instead_of_lines) {
+            self.draw_rects();
+        } else {
+            self.draw_lines();
+        }
+        self.draw_points();
+    }
+
+    pub fn set_points(&mut self, value: u32) {
+        self.shape.points = value;
+        if (value >  1440) {
+            self.shape.outline_segments = value as i32;
+        } else {
+            self.shape.outline_segments = 1440;
+        }
+
+        // Draw again
+        self.draw();
+    }
+
+    pub fn set_multiplier(&mut self, value: u32) {
+        self.shape.mul = value;
+
+        // Draw again
+        self.draw();
+    }
+
+    pub fn set_rotation(&mut self, deg: f32) {
+        // first convert degrees to radians
+        let rad: f32 = deg * std::f32::consts::PI / 180.0;
+        self.shape.rotation = rad;
+
+        // Draw again
+        self.draw();
+    }
+
+    pub fn move_shape(&mut self, dx: f32, dy: f32) {
+        self.shape.pos.x += dx;
+        self.shape.pos.y += dy;
+
+        // Draw again
+        self.draw();
+    }
+
     // Meant to be called when window gets resized
     pub fn adjust_view(&mut self) -> Result<bool, JsValue> {
         // Get elements
-        let window: web_sys::Window = web_sys::window().unwrap();
-        let document: web_sys::Document = window.document().unwrap();
+        let window: Window = web_sys::window().unwrap();
+        let document: Document = window.document().unwrap();
         let canvas: HtmlCanvasElement = document.get_element_by_id("webgl_canvas").unwrap().dyn_into::<HtmlCanvasElement>()?;
         let gl: WebGl2RenderingContext = canvas.get_context("webgl2")?.unwrap().dyn_into()?;
 
         // Adjust to window size
         let dpr: f64 = window.device_pixel_ratio();
-        let w: u32 = (window.inner_width()?.as_f64().unwrap() * dpr) as u32;
-        let h: u32 = (window.inner_height()?.as_f64().unwrap() * dpr) as u32;
+        let visual_viewport: js_sys::Object = window.get("visualViewport").unwrap();
+        let w_css: f64 = js_sys::Reflect::get(&visual_viewport, &JsValue::from_str("width"))
+            .unwrap()
+            .as_f64()
+            .unwrap();
+        let h_css: f64 = js_sys::Reflect::get(&visual_viewport, &JsValue::from_str("height"))
+            .unwrap()
+            .as_f64()
+            .unwrap();
+
+        let w: u32 = (w_css * dpr) as u32;
+        let h: u32 = (h_css * dpr) as u32;
         canvas.set_width(w);
         canvas.set_height(h);
         gl.viewport(0, 0, w as i32, h as i32);
@@ -176,7 +256,6 @@ impl Canvas {
         self.shape.widescreen = (canvas.width() >= canvas.height());
 
         // Draw again
-        self.clear();
         self.draw();
 
         return Ok(true);
@@ -188,123 +267,7 @@ impl Canvas {
         self.shape.rotation = 0.0;
 
         // Draw again
-        self.clear();
         self.draw();
-    }
-
-    pub fn set_points(&mut self, value: u32) {
-        self.shape.points = value;
-        if (value >  1440) {
-            self.shape.outline_segments = value as i32;
-        } else {
-            self.shape.outline_segments = 1440;
-        }
-    }
-
-    pub fn set_multiplier(&mut self, value: u32) {
-        self.shape.mul = value;
-    }
-
-    pub fn set_rotation(&mut self, deg: f32) {
-        // first convert degrees to radians
-        let rad: f32 = deg * std::f32::consts::PI / 180.0;
-        self.shape.rotation = rad;
-
-        // Draw again
-        self.clear();
-        self.draw();
-    }
-
-    pub fn clear(&self) {
-        let r: f32 = normalize_u8_to_1(self.bg.r);
-        let g: f32 = normalize_u8_to_1(self.bg.g);
-        let b: f32 = normalize_u8_to_1(self.bg.b);
-        self.context.clear_color(r, g, b, 1.0);
-        self.context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
-    }
-
-    pub fn update_fg_color(&self) {
-        let red: f32 = normalize_u8_to_1(self.shape.color.r);
-        let green: f32 = normalize_u8_to_1(self.shape.color.g);
-        let blue: f32 = normalize_u8_to_1(self.shape.color.b);
-
-        self.context.use_program(Some(&self.point_program));
-        self.context.uniform3f(Some(&self.u_point_color_location), red, green, blue);
-
-        self.context.use_program(Some(&self.line_program));
-        self.context.uniform3f(Some(&self.u_line_color_location), red, green, blue);
-
-        self.context.use_program(Some(&self.outline_program));
-        self.context.uniform3f(Some(&self.u_outline_color_location), red, green, blue);
-    }
-
-    pub fn draw(&self) {
-        self.update_fg_color();
-        if (self.enable_outline) {
-            self.draw_outline();
-        }
-        self.draw_lines();
-        self.draw_points();
-    }
-
-    pub fn draw_outline(&self) {
-        self.context.use_program(Some(&self.outline_program));
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_segments").expect("Error")), self.shape.outline_segments as f32);
-        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.outline_program, "u_center").expect("Error")), self.shape.pos.x, self.shape.pos.y);
-
-        let mut x_norm: f32 = 1.0;
-        let mut y_norm: f32 = 1.0;
-        if (self.shape.widescreen) {
-            x_norm = self.shape.dimensions.y / self.shape.dimensions.x;
-        } else {
-            y_norm = self.shape.dimensions.x / self.shape.dimensions.y;
-        }
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_x_norm").expect("Error")), x_norm);
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_y_norm").expect("Error")), y_norm);
-
-
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_radius").expect("Error")), self.shape.r + self.shape.outline_width / 2.0);
-        self.context.draw_arrays(WebGl2RenderingContext::TRIANGLE_FAN, 0, self.shape.outline_segments + 2);
-        
-        let bg_red: f32 = normalize_u8_to_1(24);
-        let bg_green: f32 = normalize_u8_to_1(24);
-        let bg_blue: f32 = normalize_u8_to_1(24);
-        self.context.uniform3f(Some(&self.u_outline_color_location), bg_red, bg_green, bg_blue);
-
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_radius").expect("Error")), self.shape.r - self.shape.outline_width / 2.0);
-        self.context.draw_arrays(WebGl2RenderingContext::TRIANGLE_FAN, 0, self.shape.outline_segments + 2);
-    }
-
-    pub fn draw_lines(&self) {
-        self.context.use_program(Some(&self.line_program));
-        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_points").expect("Error")), self.shape.points as i32);
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_radius").expect("Error")), self.shape.r);
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_rotation").expect("Error")), self.shape.rotation);
-        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
-        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
-        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_widescreen").expect("Error")), if self.shape.widescreen { 1 } else { 0 });
-        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_multiplier").expect("Error")), self.shape.mul as i32);
-        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, (self.shape.points * 2) as i32);
-    }
-
-    pub fn draw_points(&self) {
-        self.context.use_program(Some(&self.point_program));
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_points").expect("Error")), self.shape.points as f32);
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_radius").expect("Error")), self.shape.r);
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_rotation").expect("Error")), self.shape.rotation);
-        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.point_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
-        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.point_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
-        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.point_program, "u_widescreen").expect("Error")), if self.shape.widescreen { 1 } else { 0 });
-        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_point_size").expect("Error")), self.shape.point_size);
-        self.context.draw_arrays(WebGl2RenderingContext::POINTS, 0, self.shape.points as i32);
-    }
-
-    pub fn get_r(&self) -> f32 {
-        return self.shape.r;
-    }
-
-    pub fn set_enable_outline(&mut self, value: bool) {
-        self.enable_outline = value;
     }
 
     // Increase radius and adjust the new location of the center so that
@@ -352,15 +315,128 @@ impl Canvas {
         }
         
         // Draw again
-        self.clear();
         self.draw();
     }
 
-    pub fn move_shape(&mut self, dx: f32, dy: f32) {
-        self.shape.pos.x += dx;
-        self.shape.pos.y += dy;
-        self.clear();
+    pub fn get_r(&self) -> f32 {
+        return self.shape.r;
+    }
+
+    pub fn set_enable_outline(&mut self, value: bool) {
+        self.enable_outline = value;
+
+        // Draw again
         self.draw();
+    }
+
+    pub fn set_use_rects(&mut self, value: bool) {
+        self.shape.use_rects_instead_of_lines = value;
+
+        // Draw again
+        self.draw();
+    }
+
+    pub fn set_rect_width(&mut self, value: f32) {
+        self.shape.rect_width = value;
+        self.shape.outline_width = value * 1.5;
+
+        // Draw again
+        self.draw();
+    }
+
+    ///////////////////////
+    // Private functions //
+    ///////////////////////
+
+    fn clear(&self) {
+        let r: f32 = normalize_u8_to_1(self.bg.r);
+        let g: f32 = normalize_u8_to_1(self.bg.g);
+        let b: f32 = normalize_u8_to_1(self.bg.b);
+        self.context.clear_color(r, g, b, 1.0);
+        self.context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
+    }
+
+    fn update_fg_color(&self) {
+        let red: f32 = normalize_u8_to_1(self.shape.color.r);
+        let green: f32 = normalize_u8_to_1(self.shape.color.g);
+        let blue: f32 = normalize_u8_to_1(self.shape.color.b);
+
+        self.context.use_program(Some(&self.point_program));
+        self.context.uniform3f(Some(&self.u_point_color_location), red, green, blue);
+
+        self.context.use_program(Some(&self.line_program));
+        self.context.uniform3f(Some(&self.u_line_color_location), red, green, blue);
+
+        self.context.use_program(Some(&self.outline_program));
+        self.context.uniform3f(Some(&self.u_outline_color_location), red, green, blue);
+
+        self.context.use_program(Some(&self.rect_program));
+        self.context.uniform3f(Some(&self.context.get_uniform_location(&self.rect_program, "u_color").expect("Error")), red, green, blue);
+    }
+
+    fn draw_outline(&self) {
+        self.context.use_program(Some(&self.outline_program));
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_segments").expect("Error")), self.shape.outline_segments as f32);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.outline_program, "u_center").expect("Error")), self.shape.pos.x, self.shape.pos.y);
+
+        let mut x_norm: f32 = 1.0;
+        let mut y_norm: f32 = 1.0;
+        if (self.shape.widescreen) {
+            x_norm = self.shape.dimensions.y / self.shape.dimensions.x;
+        } else {
+            y_norm = self.shape.dimensions.x / self.shape.dimensions.y;
+        }
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_x_norm").expect("Error")), x_norm);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_y_norm").expect("Error")), y_norm);
+
+
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_radius").expect("Error")), self.shape.r + self.shape.outline_width / 2.0);
+        self.context.draw_arrays(WebGl2RenderingContext::TRIANGLE_FAN, 0, self.shape.outline_segments + 2);
+        
+        let bg_red: f32 = normalize_u8_to_1(24);
+        let bg_green: f32 = normalize_u8_to_1(24);
+        let bg_blue: f32 = normalize_u8_to_1(24);
+        self.context.uniform3f(Some(&self.u_outline_color_location), bg_red, bg_green, bg_blue);
+
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_radius").expect("Error")), self.shape.r - self.shape.outline_width / 2.0);
+        self.context.draw_arrays(WebGl2RenderingContext::TRIANGLE_FAN, 0, self.shape.outline_segments + 2);
+    }
+
+    fn draw_lines(&self) {
+        self.context.use_program(Some(&self.line_program));
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_points").expect("Error")), self.shape.points as i32);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_radius").expect("Error")), self.shape.r);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.line_program, "u_rotation").expect("Error")), self.shape.rotation);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.line_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_widescreen").expect("Error")), if self.shape.widescreen { 1 } else { 0 });
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.line_program, "u_multiplier").expect("Error")), self.shape.mul as i32);
+        self.context.draw_arrays(WebGl2RenderingContext::LINES, 0, (self.shape.points * 2) as i32);
+    }
+
+    fn draw_points(&self) {
+        self.context.use_program(Some(&self.point_program));
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_points").expect("Error")), self.shape.points as f32);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_radius").expect("Error")), self.shape.r);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_rotation").expect("Error")), self.shape.rotation);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.point_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.point_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.point_program, "u_widescreen").expect("Error")), if self.shape.widescreen {1} else {0});
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.point_program, "u_point_size").expect("Error")), self.shape.point_size);
+        self.context.draw_arrays(WebGl2RenderingContext::POINTS, 0, self.shape.points as i32);
+    }
+
+    fn draw_rects(&self) {
+        self.context.use_program(Some(&self.rect_program));
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.rect_program, "u_points").expect("Error")), self.shape.points as i32);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.rect_program, "u_radius").expect("Error")), self.shape.r);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.rect_program, "u_rotation").expect("Error")), self.shape.rotation);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.rect_program, "u_position").expect("Error")), self.shape.pos.x, self.shape.pos.y);
+        self.context.uniform2f(Some(&self.context.get_uniform_location(&self.rect_program, "u_dimensions").expect("Error")), self.shape.dimensions.x, self.shape.dimensions.y);
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.rect_program, "u_widescreen").expect("Error")), if self.shape.widescreen {1} else {0});
+        self.context.uniform1i(Some(&self.context.get_uniform_location(&self.rect_program, "u_multiplier").expect("Error")), self.shape.mul as i32);
+        self.context.uniform1f(Some(&self.context.get_uniform_location(&self.rect_program, "u_rectw").expect("Error")), self.shape.rect_width);
+        self.context.draw_arrays(WebGl2RenderingContext::TRIANGLES, 0, (self.shape.points * 6) as i32);
     }
 }
 
