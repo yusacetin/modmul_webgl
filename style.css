@@ -14,30 +14,44 @@ You should have received a copy of the GNU General Public License along with Mod
 Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 */
 
+/* Import Font */
+
 @font-face {
     font-family: 'Noto Sans';
-    src: url('NotoSans-Regular.ttf') format('truetype');
+    src: url('NotoSans-Regular-subset.ttf') format('truetype');
     font-style: normal;
 }
+
+/* Page Properties */
 
 html {
     overflow: hidden;
     height: 100%;
-    
 }
 
 body {
     margin: 0;
     padding: 0;
-    font-size: 1.05em;
     overflow: hidden;
     height: 100%;
     font-family: "Noto Sans", sans-serif;
 }
 
+/* Common Elements */
+
+canvas {
+    display: block;
+}
+
+span {
+    color: rgb(240, 240, 240);
+}
+
 label {
     color: rgb(240, 240, 240);
 }
+
+/* Classes */
 
 .noselect {
     -ms-user-select: none;
@@ -45,22 +59,12 @@ label {
     user-select: none;
 }
 
-span {
-    color: rgb(240, 240, 240);
-}
-
-#control_panel{
-    padding: 10px 10px;
-    background-color: rgba(32, 32, 32, 0.95);
-    border-radius: 0 0 20px 0;
-    line-height: 1.2em;
-    max-width: 30em;
-}
-
 .panel_row {
     margin-top: 10px;
     margin-bottom: 10px;
 }
+
+/* By ID */
 
 #control_panel_wrapper {
     position: absolute;
@@ -75,28 +79,21 @@ span {
     float: right;
 }
 
-input[type="number"] {
-    font-size: 1.25em;
-    width: 6em;
-    max-width: 6em;
-    border-radius: 8px;
-    padding: 2px 6px;
-    margin-left: 5px;
-    outline: none;
-    border: #585858 solid 2px;
-    background-color: #3B3B3B;
-    color: #FAFAFA;
-    font-family: "Noto Sans", sans-serif;
+#control_panel{
+    padding: 10px 10px;
+    background-color: rgba(32, 32, 32, 0.95);
+    border-radius: 0 0 20px 0;
+    line-height: 1.2em;
+    max-width: 30em;
 }
 
-input[type="number"]:focus {
-    border: rgb(25, 118, 210) solid 2px;
+#rotation_label {
+    display: inline-block;
+    width: 2em;
+    text-align: right;
 }
 
-input[type="number"]:disabled {
-    background-color: #202020;
-    color: #606060;
-}
+/* Buttons */
 
 button {
     font-size: 1.2em;
@@ -119,14 +116,29 @@ button:active {
     background-color: #656565;
 }
 
-canvas {
-    display: block;
+/* Inputs */
+
+input[type="number"] {
+    font-size: 1.2em;
+    width: 6em;
+    max-width: 6em;
+    border-radius: 8px;
+    padding: 2px 6px;
+    margin-left: 5px;
+    outline: none;
+    border: #585858 solid 2px;
+    background-color: #3B3B3B;
+    color: #FAFAFA;
+    font-family: "Noto Sans", sans-serif;
 }
 
-#rotation_label {
-    display: inline-block;
-    width: 2em;
-    text-align: right;
+input[type="number"]:focus {
+    border: rgb(25, 118, 210) solid 2px;
+}
+
+input[type="number"]:disabled {
+    background-color: #202020;
+    color: #606060;
 }
 
 input[type="range"] {
@@ -146,4 +158,8 @@ input[type="range"]::-webkit-slider-thumb {
   border: 2px solid #202020;
   border-radius: 50%;
   cursor: pointer;
+}
+
+input[type="checkbox"] {
+    border: 2px solid #202020;
 }

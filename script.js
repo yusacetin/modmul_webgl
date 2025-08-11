@@ -75,7 +75,7 @@ async function run() {
     webgl_canvas.addEventListener("wheel", function(e) {
         e.preventDefault();
         let step = canvas.get_r() / 5.0;
-        if (e.deltaY < 0) {step *= -1;}
+        if (e.deltaY >= 0) {step *= -1;}
 
         let normalized_x = (e.clientX - window.innerWidth/2) / (window.innerWidth / 2);
         let normalized_y = (window.innerHeight/2 - e.clientY) / (window.innerHeight / 2);
