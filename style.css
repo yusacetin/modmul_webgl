@@ -14,6 +14,12 @@ You should have received a copy of the GNU General Public License along with Mod
 Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 */
 
+@font-face {
+    font-family: 'Noto Sans';
+    src: url('NotoSans-Regular.ttf') format('truetype');
+    font-style: normal;
+}
+
 html {
     overflow: hidden;
     height: 100%;
@@ -23,10 +29,10 @@ html {
 body {
     margin: 0;
     padding: 0;
-    font-size: 1.25em;
+    font-size: 1.05em;
     overflow: hidden;
     height: 100%;
-    font-family: monospace;
+    font-family: "Noto Sans", sans-serif;
 }
 
 label {
@@ -80,7 +86,7 @@ input[type="number"] {
     border: #585858 solid 2px;
     background-color: #3B3B3B;
     color: #FAFAFA;
-    font-family: monospace;
+    font-family: "Noto Sans", sans-serif;
 }
 
 input[type="number"]:focus {
@@ -94,7 +100,7 @@ input[type="number"]:disabled {
 
 button {
     font-size: 1.2em;
-    font-family: monospace;
+    font-family: "Noto Sans", sans-serif;
     border-radius: 9px;
     background-color: #3B3B3B;
     border: #585858 solid 2px;
@@ -125,10 +131,11 @@ canvas {
 
 input[type="range"] {
   -webkit-appearance: none;
+  appearance: inherit;
   background: #ffffff;
   height: 6px;
   border-radius: 3px;
-  width: 14em;
+  width: 16em;
 }
 
 input[type="range"]::-webkit-slider-thumb {
