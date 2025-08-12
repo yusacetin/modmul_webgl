@@ -303,6 +303,8 @@ async function run() {
         });
     }
 
+    let touch_zooming = false; // cancel touch moving if zooming
+
     // Touchscreen move
     {
         let webgl_canvas = document.getElementById("webgl_canvas");
@@ -335,6 +337,9 @@ async function run() {
         webgl_canvas.addEventListener("touchmove", function(e) {
             e.preventDefault();
             if (!dragging) {
+                return;
+            }
+            if (touch_zooming) {
                 return;
             }
 
@@ -386,6 +391,7 @@ async function run() {
             }
 
             e.preventDefault();
+            touch_zooming = true;
             const cur_r = canvas.get_r();
             const step_coef = 0.005 * cur_r;
 
@@ -395,21 +401,35 @@ async function run() {
             const ddist = ddist_raw * step_coef;
 
             // Calculate center of pinch gesture
-            const center_x = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            const center_y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            let center_x = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            let center_y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
 
-            // Normalize midpoint
-            const rect = webgl_canvas.getBoundingClientRect();
-            const norm_x = (center_x - rect.left - rect.width / 2) / (rect.width / 2);
-            const norm_y = (rect.height / 2 - (center_y - rect.top)) / (rect.height / 2);
+            let w = window.innerWidth;
+            let h = window.innerHeight;
 
-            canvas.add_to_r(ddist, norm_x, norm_y);
+            center_x -= w/2;
+            center_y -= h/2;
+            center_y *= -1;
+
+            if (w >= h) {
+                center_x /= h;
+                center_y /= h;
+            } else {
+                center_x /= w;
+                center_y /= w;
+            }
+
+            center_x *= 2;
+            center_y *= 2;
+
+            canvas.add_to_r(ddist, center_x, center_y);
 
             prev_dist = cur_dist;
         });
 
         webgl_canvas.addEventListener("touchend", function(e) {
             prev_dist = 0.0;
+            touch_zooming = false;
         });
     }
 
