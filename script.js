@@ -232,78 +232,188 @@ async function run() {
         });
     }
 
+    // Movement by mouse drag
+    {
+        let dragging = false;
+        let last_x = 0.0;
+        let last_y = 0.0;
+
+        let webgl_canvas = document.getElementById("webgl_canvas");
+
+        // When mouse button is pressed, we start the drag state
+        webgl_canvas.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) {
+                // Only accept left click
+                return;
+            }
+            dragging = true;
+            last_x = e.clientX;
+            last_y = e.clientY;
+            webgl_canvas.style.cursor = "move";
+        });
+
+        // When mouse button is released, we end the drag state
+        webgl_canvas.addEventListener("mouseup", (e) => {
+            if (e.button !== 0) {
+                return;
+            }
+            dragging = false;
+            webgl_canvas.style.cursor = "default";
+        });
+
+        // When cursor leaves the screen, we should end the drag state to not cause confusion
+        webgl_canvas.addEventListener("mouseleave", (e) => {
+            if (e.button !== 0) {
+                return;
+            }
+            if (e.relatedTarget && e.relatedTarget.id === "control_panel") {
+                return;
+            }
+            if (e.relatedTarget && e.relatedTarget.id === "show_button") {
+                return;
+            }
+            dragging = false;
+            webgl_canvas.style.cursor = "default";
+        }); 
+
+        // If in drag mode, move the canvas
+        // If not, don't do anything
+        webgl_canvas.addEventListener("mousemove", (e) => {
+            if (!dragging) {
+                return;
+            }
+
+            let w = window.innerWidth;
+            let h = window.innerHeight;
+
+            let dx = (e.clientX - last_x) * 2;
+            let dy = (last_y - e.clientY) * 2;
+            if (w >= h) {
+                dx /= h;
+                dy /= h;
+            } else {
+                dx /= w;
+                dy /= w;
+            }
+
+            last_x = e.clientX;
+            last_y = e.clientY;
+
+            canvas.move_shape(dx, dy);
+        });
+    }
+
+    // Touchscreen move
+    {
+        let webgl_canvas = document.getElementById("webgl_canvas");
+
+        let dragging = false;
+        let prev_x = 0.0;
+        let prev_y = 0.0;
+
+        // On first touch, begin dragging mode
+        webgl_canvas.addEventListener("touchstart", function(e) {
+            if (e.touches.length !== 1) {
+                return;
+            }
+
+            dragging = true;
+            prev_x = e.touches[0].clientX;
+            prev_y = e.touches[0].clientY;
+        });
+
+        // Exit dragging mode when touch event ends
+        webgl_canvas.addEventListener("touchend", function(e) {
+            dragging = false;
+        });
+
+        webgl_canvas.addEventListener("touchcancel", function(e) {
+            dragging = false;
+        });
+
+        // Handle drag event if in dragging mode
+        webgl_canvas.addEventListener("touchmove", function(e) {
+            e.preventDefault();
+            if (!dragging) {
+                return;
+            }
+
+            const cur_x = e.touches[0].clientX;
+            const cur_y = e.touches[0].clientY;
+
+            let w = window.innerWidth;
+            let h = window.innerHeight;
+
+            let dx = (cur_x - prev_x) * 2;
+            let dy = (prev_y - cur_y) * 2;
+            if (w >= h) {
+                dx /= h;
+                dy /= h;
+            } else {
+                dx /= w;
+                dy /= w;
+            }
+
+            prev_x = cur_x;
+            prev_y = cur_y;
+
+            canvas.move_shape(dx, dy);
+        });
+    }
+
+    // Touchscreen zoom
+    {
+        // helper function
+        function get_distance(touch0, touch1) {
+            const dx = touch0.clientX - touch1.clientX;
+            const dy = touch0.clientY - touch1.clientY;
+            return Math.sqrt(dx*dx + dy*dy);
+        }
+
+        let webgl_canvas = document.getElementById("webgl_canvas");
+
+        let prev_dist = 0.0;
+
+        webgl_canvas.addEventListener("touchstart", function(e) {
+            if (e.touches.length === 2) {
+                prev_dist = get_distance(e.touches[0], e.touches[1]);
+            }
+        });
+
+        webgl_canvas.addEventListener("touchmove", function(e) {
+            if (e.touches.length !== 2) {
+                return;
+            }
+
+            e.preventDefault();
+            const cur_r = canvas.get_r();
+            const step_coef = 0.005 * cur_r;
+
+            // Calculate difference in current and previous distance
+            const cur_dist = get_distance(e.touches[0], e.touches[1]);
+            const ddist_raw = cur_dist - prev_dist;
+            const ddist = ddist_raw * step_coef;
+
+            // Calculate center of pinch gesture
+            const center_x = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const center_y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+            // Normalize midpoint
+            const rect = webgl_canvas.getBoundingClientRect();
+            const norm_x = (center_x - rect.left - rect.width / 2) / (rect.width / 2);
+            const norm_y = (rect.height / 2 - (center_y - rect.top)) / (rect.height / 2);
+
+            canvas.add_to_r(ddist, norm_x, norm_y);
+
+            prev_dist = cur_dist;
+        });
+
+        webgl_canvas.addEventListener("touchend", function(e) {
+            prev_dist = 0.0;
+        });
+    }
+
     console.log("Loading complete");
-}
-
-// Movement by mouse drag
-{
-    let dragging = false;
-    let last_x = 0.0;
-    let last_y = 0.0;
-
-    let webgl_canvas = document.getElementById("webgl_canvas");
-
-    // When mouse button is pressed, we start the drag state
-    webgl_canvas.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) {
-            // Only accept left click
-            return;
-        }
-        dragging = true;
-        last_x = e.clientX;
-        last_y = e.clientY;
-        webgl_canvas.style.cursor = "move";
-    });
-
-    // When mouse button is released, we end the drag state
-    webgl_canvas.addEventListener("mouseup", (e) => {
-        if (e.button !== 0) {
-            return;
-        }
-        dragging = false;
-        webgl_canvas.style.cursor = "default";
-    });
-
-    // When cursor leaves the screen, we should end the drag state to not cause confusion
-    webgl_canvas.addEventListener("mouseleave", (e) => {
-        if (e.button !== 0) {
-            return;
-        }
-        if (e.relatedTarget && e.relatedTarget.id === "control_panel") {
-            return;
-        }
-        if (e.relatedTarget && e.relatedTarget.id === "show_button") {
-            return;
-        }
-        dragging = false;
-        webgl_canvas.style.cursor = "default";
-    }); 
-
-    // If in drag mode, move the canvas
-    // If not, don't do anything
-    webgl_canvas.addEventListener("mousemove", (e) => {
-        if (!dragging) {
-            return;
-        }
-
-        let w = window.innerWidth;
-        let h = window.innerHeight;
-
-        let dx = (e.clientX - last_x) * 2;
-        let dy = (last_y - e.clientY) * 2;
-        if (w >= h) {
-            dx /= h;
-            dy /= h;
-        } else {
-            dx /= w;
-            dy /= w;
-        }
-
-        last_x = e.clientX;
-        last_y = e.clientY;
-
-        canvas.move_shape(dx, dy);
-    });
 }
 
 run();
