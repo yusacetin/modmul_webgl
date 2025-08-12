@@ -24,239 +24,286 @@ async function run() {
     canvas = new Canvas();
     canvas.draw();
 
-    // change number of points by scrolling over the input
-    let points_input = document.getElementById("points_input");
-    points_input.addEventListener("change", (e) => {
-        if (points_input.value < 1) {
-            points_input.value = 1;
-        }
-        canvas.set_points(document.getElementById("points_input").value);
-    });
-    points_input.addEventListener("wheel", function(e) {
-        e.preventDefault(); // prevent page scrolling
-        const step = parseFloat(points_input.step) || 1;
-        const current = parseFloat(points_input.value) || 0;
-        if (e.deltaY < 0) {
-            if (current + step >= 0) {
-                points_input.value = current + step;
+    // change number of points
+    {
+        // by input box
+        let points_input = document.getElementById("points_input");
+        points_input.addEventListener("input", (e) => {
+            if (isNaN(points_input.value)) {
+                return;
             }
-        } else {
-            if (current - step >= 0) {
-                points_input.value = current - step;
-            }
-        }
-        canvas.set_points(points_input.value);
-    });
 
-    // change multiplier by scrolling over the input
-    let mul_input = document.getElementById("mul_input");
-    mul_input.addEventListener("change", (e) => {
-        if (mul_input.value < 0) {
-            mul_input.value = 0;
-        }
-        canvas.set_multiplier(document.getElementById("mul_input").value);
-    });
-    mul_input.addEventListener("wheel", function(e) {
-        e.preventDefault();
-        const step = parseFloat(mul_input.step) || 1;
-        const current = parseFloat(mul_input.value) || 0;
-        if (e.deltaY < 0) {
-            mul_input.value = current + step;
-        } else {
-            if (current - step >= parseInt(mul_input.getAttribute("min"))) {
-                mul_input.value = current - step;
+            let val = points_input.value;
+            if (val < 1) {
+                val = 1;
             }
-        }
-        canvas.set_multiplier(mul_input.value);
-    });
+            canvas.set_points(val);
+        });
+
+        // by mouse wheel
+        points_input.addEventListener("wheel", function(e) {
+            e.preventDefault(); // prevent page scrolling
+            const step = parseFloat(points_input.step) || 1;
+            const current = parseFloat(points_input.value) || 0;
+            if (e.deltaY < 0) {
+                if (current + step >= 0) {
+                    points_input.value = current + step;
+                }
+            } else {
+                if (current - step >= 0) {
+                    points_input.value = current - step;
+                }
+            }
+            canvas.set_points(points_input.value);
+        });
+    }
+
+    // change multiplier 
+    {
+        // by input box
+        let mul_input = document.getElementById("mul_input");
+        mul_input.addEventListener("input", (e) => {
+            if (isNaN(mul_input.value)) {
+                return;
+            }
+
+            let val = mul_input.value;
+            if (val < 1) {
+                val = 0;
+            }
+            canvas.set_multiplier(val);
+        });
+
+        // by mouse wheel
+        mul_input.addEventListener("wheel", function(e) {
+            e.preventDefault();
+            const step = parseFloat(mul_input.step) || 1;
+            const current = parseFloat(mul_input.value) || 0;
+            if (e.deltaY < 0) {
+                mul_input.value = current + step;
+            } else {
+                if (current - step >= parseInt(mul_input.getAttribute("min"))) {
+                    mul_input.value = current - step;
+                }
+            }
+            canvas.set_multiplier(mul_input.value);
+        });
+    }
 
     // zoom in and out by scrolling over the canvas
-    let webgl_canvas = document.getElementById("webgl_canvas");
-    webgl_canvas.addEventListener("wheel", function(e) {
-        e.preventDefault();
-        let step = canvas.get_r() / 5.0;
-        if (e.deltaY >= 0) {step *= -1;}
+    {
+        let webgl_canvas = document.getElementById("webgl_canvas");
+        webgl_canvas.addEventListener("wheel", function(e) {
+            e.preventDefault();
+            let step = canvas.get_r() / 5.0;
+            if (e.deltaY >= 0) {step *= -1;}
 
-        let normalized_x = (e.clientX - window.innerWidth/2) / (window.innerWidth / 2);
-        let normalized_y = (window.innerHeight/2 - e.clientY) / (window.innerHeight / 2);
+            let normalized_x = (e.clientX - window.innerWidth/2) / (window.innerWidth / 2);
+            let normalized_y = (window.innerHeight/2 - e.clientY) / (window.innerHeight / 2);
 
-        canvas.add_to_r(step, normalized_x, normalized_y);
-    });
-
-    let reset_view_button = document.getElementById("reset_view_button");
-    reset_view_button.addEventListener("click", () => {
-        document.getElementById("rotation_slider").value = 0;
-        document.getElementById("rotation_label").textContent = 0;
-        canvas.reset();
-    });
-
-    let rotation_slider = document.getElementById("rotation_slider");
-    rotation_slider.addEventListener("input", function() {
-        document.getElementById("rotation_label").textContent = this.value;
-        canvas.set_rotation(this.value);
-    });
-
+            canvas.add_to_r(step, normalized_x, normalized_y);
+        });
+    }
+    
+    // reset view
+    {
+        let reset_view_button = document.getElementById("reset_view_button");
+        reset_view_button.addEventListener("click", () => {
+            document.getElementById("rotation_slider").value = 0;
+            document.getElementById("rotation_label").textContent = 0;
+            canvas.reset();
+        });
+    }
+    
+    // change rotation
+    {
+        let rotation_slider = document.getElementById("rotation_slider");
+        rotation_slider.addEventListener("input", function() {
+            document.getElementById("rotation_label").textContent = this.value;
+            canvas.set_rotation(this.value);
+        });
+    }
+    
     // set enable draw outline
-    let draw_outline_cb = document.getElementById("draw_outline_cb");
-    draw_outline_cb.addEventListener("change", (e) => {
-        let val = draw_outline_cb.checked;
-        canvas.set_enable_outline(val);
-    });
+    {
+        let draw_outline_cb = document.getElementById("draw_outline_cb");
+        draw_outline_cb.addEventListener("change", (e) => {
+            let val = draw_outline_cb.checked;
+            canvas.set_enable_outline(val);
+        });
+    }
 
     // change line width
-    let line_width_input = document.getElementById("line_width");
-    line_width_input.addEventListener("wheel", (e) => {
-        e.preventDefault(); // prevent page scrolling
-        if (line_width_input.getAttribute("disabled")) {
-            return;
-        }
-        const step = parseFloat(line_width_input.step) || 1;
-        const current = parseFloat(line_width_input.value) || 0;
-        if (e.deltaY < 0) {
-            if (current + step >= 0) {
-                line_width_input.value = current + step;
+    {
+        // by mouse wheel
+        let line_width_input = document.getElementById("line_width");
+        line_width_input.addEventListener("wheel", (e) => {
+            e.preventDefault(); // prevent page scrolling
+            if (line_width_input.getAttribute("disabled")) {
+                return;
             }
-        } else {
-            if (current - step >= 0) {
-                line_width_input.value = current - step;
+            const step = parseFloat(line_width_input.step) || 1;
+            const current = parseFloat(line_width_input.value) || 0;
+            if (e.deltaY < 0) {
+                if (current + step >= 0) {
+                    line_width_input.value = current + step;
+                }
+            } else {
+                if (current - step >= 0) {
+                    line_width_input.value = current - step;
+                }
             }
-        }
-        
-        let val = line_width_input.value;
-        if (val <= 0) {
-            val = 0.0001;
-            line_width_input.value = 1;
-        } else {
-            val /= 10000.0;
-        }
-        canvas.set_rect_width(val);
-    });
-    line_width_input.addEventListener("change", (e) => {
-        let val = line_width_input.value;
-        if (val <= 0) {
-            val = 0.0001;
-            line_width_input.value = 1;
-        } else {
-            val /= 10000.0;
-        }
-        canvas.set_rect_width(val);
-    });
+            
+            let val = line_width_input.value;
+            if (val <= 0) {
+                val = 0.0001;
+                line_width_input.value = 1;
+            } else {
+                val /= 10000.0;
+            }
+            canvas.set_rect_width(val);
+        });
 
-    // change shader (lines)
-    let lines_rb = document.getElementById("lines_rb");
-    lines_rb.addEventListener("change", (e) => {
-        let val = !lines_rb.checked;
-        canvas.set_use_rects(val);
+        // by input box
+        line_width_input.addEventListener("input", (e) => {
+            if (isNaN(line_width_input.value)) {
+                return;
+            }
 
-        if (val) {
-            line_width_input.removeAttribute("disabled");
-        } else {
-            line_width_input.setAttribute("disabled", true);
-        }
-    });
+            let val = line_width_input.value;
+            if (val <= 0) {
+                val = 0.0001;
+            } else {
+                val /= 10000.0;
+            }
+            canvas.set_rect_width(val);
+        });
+    }
 
-    // change shader (rects)
-    let rects_rb = document.getElementById("rects_rb");
-    rects_rb.addEventListener("change", (e) => {
-        let val = rects_rb.checked;
-        canvas.set_use_rects(val);
+    // change shader
+    {
+        // to lines
+        let line_width_input = document.getElementById("line_width");
+        let lines_rb = document.getElementById("lines_rb");
+        lines_rb.addEventListener("change", (e) => {
+            let val = !lines_rb.checked;
+            canvas.set_use_rects(val);
 
-        if (val) {
-            line_width_input.removeAttribute("disabled");
-        } else {
-            line_width_input.setAttribute("disabled", true);
-        }
-    });
+            if (val) {
+                line_width_input.removeAttribute("disabled");
+            } else {
+                line_width_input.setAttribute("disabled", true);
+            }
+        });
+
+        // to rects
+        let rects_rb = document.getElementById("rects_rb");
+        rects_rb.addEventListener("change", (e) => {
+            let val = rects_rb.checked;
+            canvas.set_use_rects(val);
+
+            if (val) {
+                line_width_input.removeAttribute("disabled");
+            } else {
+                line_width_input.setAttribute("disabled", true);
+            }
+        });
+    }
+
+    // panel show/hide buttons
+    {
+        let hide_button = document.getElementById("hide_button");
+        let show_button = document.getElementById("show_button");
+        let panel = document.getElementById("control_panel");
+        hide_button.addEventListener("click", (e) => {
+            show_button.removeAttribute("style");
+            panel.setAttribute("style", "display:none;")
+        });
+        show_button.addEventListener("click", (e) => {
+            show_button.setAttribute("style", "display:none;");
+            panel.removeAttribute("style");
+        });
+    }
 
     // adjust to new window size when resized
-    window.addEventListener("resize", () => {
-        canvas.adjust_view();
-    });
-
-    // hide or show panel
-    let hide_button = document.getElementById("hide_button");
-    let show_button = document.getElementById("show_button");
-    let panel = document.getElementById("control_panel");
-    hide_button.addEventListener("click", (e) => {
-        show_button.removeAttribute("style");
-        panel.setAttribute("style", "display:none;")
-    });
-    show_button.addEventListener("click", (e) => {
-        show_button.setAttribute("style", "display:none;");
-        panel.removeAttribute("style");
-    });
+    {
+        window.addEventListener("resize", () => {
+            canvas.adjust_view();
+        });
+    }
 
     console.log("Loading complete");
 }
 
-// Movement state logic
+// Movement by mouse drag
+{
+    let dragging = false;
+    let last_x = 0.0;
+    let last_y = 0.0;
 
-let dragging = false;
-let last_x = 0.0;
-let last_y = 0.0;
+    let webgl_canvas = document.getElementById("webgl_canvas");
 
-let webgl_canvas = document.getElementById("webgl_canvas");
+    // When mouse button is pressed, we start the drag state
+    webgl_canvas.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) {
+            // Only accept left click
+            return;
+        }
+        dragging = true;
+        last_x = e.clientX;
+        last_y = e.clientY;
+        webgl_canvas.style.cursor = "move";
+    });
 
-// When mouse button is pressed, we start the drag state
-webgl_canvas.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) {
-        // Only accept left click
-        return;
-    }
-    dragging = true;
-    last_x = e.clientX;
-    last_y = e.clientY;
-    webgl_canvas.style.cursor = "move";
-});
+    // When mouse button is released, we end the drag state
+    webgl_canvas.addEventListener("mouseup", (e) => {
+        if (e.button !== 0) {
+            return;
+        }
+        dragging = false;
+        webgl_canvas.style.cursor = "default";
+    });
 
-// When mouse button is released, we end the drag state
-webgl_canvas.addEventListener("mouseup", (e) => {
-    if (e.button !== 0) {
-        return;
-    }
-    dragging = false;
-    webgl_canvas.style.cursor = "default";
-});
+    // When cursor leaves the screen, we should end the drag state to not cause confusion
+    webgl_canvas.addEventListener("mouseleave", (e) => {
+        if (e.button !== 0) {
+            return;
+        }
+        if (e.relatedTarget && e.relatedTarget.id === "control_panel") {
+            return;
+        }
+        if (e.relatedTarget && e.relatedTarget.id === "show_button") {
+            return;
+        }
+        dragging = false;
+        webgl_canvas.style.cursor = "default";
+    }); 
 
-// When cursor leaves the screen, we should end the drag state to not cause confusion
-webgl_canvas.addEventListener("mouseleave", (e) => {
-    if (e.button !== 0) {
-        return;
-    }
-    if (e.relatedTarget && e.relatedTarget.id === "control_panel") {
-        return;
-    }
-    if (e.relatedTarget && e.relatedTarget.id === "show_button") {
-        return;
-    }
-    dragging = false;
-    webgl_canvas.style.cursor = "default";
-}); 
+    // If in drag mode, move the canvas
+    // If not, don't do anything
+    webgl_canvas.addEventListener("mousemove", (e) => {
+        if (!dragging) {
+            return;
+        }
 
-// If in drag mode, move the canvas
-// If not, don't do anything
-webgl_canvas.addEventListener("mousemove", (e) => {
-    if (!dragging) {
-        return;
-    }
+        let w = window.innerWidth;
+        let h = window.innerHeight;
 
-    let w = window.innerWidth;
-    let h = window.innerHeight;
+        let dx = (e.clientX - last_x) * 2;
+        let dy = (last_y - e.clientY) * 2;
+        if (w >= h) {
+            dx /= h;
+            dy /= h;
+        } else {
+            dx /= w;
+            dy /= w;
+        }
 
-    let dx = (e.clientX - last_x) * 2;
-    let dy = (last_y - e.clientY) * 2;
-    if (w >= h) {
-        dx /= h;
-        dy /= h;
-    } else {
-        dx /= w;
-        dy /= w;
-    }
+        last_x = e.clientX;
+        last_y = e.clientY;
 
-    last_x = e.clientX;
-    last_y = e.clientY;
-
-    canvas.move_shape(dx, dy);
-});
+        canvas.move_shape(dx, dy);
+    });
+}
 
 run();

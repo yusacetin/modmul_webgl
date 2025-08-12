@@ -17,8 +17,8 @@ Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 /* Import Font */
 
 @font-face {
-    font-family: 'Noto Sans';
-    src: url('NotoSans-Regular-subset.ttf') format('truetype');
+    font-family: "Noto Sans";
+    src: url("NotoSans-Regular-subset.ttf") format("truetype");
     font-style: normal;
 }
 
@@ -27,6 +27,7 @@ Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 html {
     overflow: hidden;
     height: 100%;
+    overscroll-behavior-y: contain;
 }
 
 body {
@@ -35,6 +36,7 @@ body {
     overflow: hidden;
     height: 100%;
     font-family: "Noto Sans", sans-serif;
+    overscroll-behavior-y: contain;
 }
 
 /* Common Elements */
@@ -111,11 +113,11 @@ button {
 }
 
 button:hover {
-    background-color: #505050;
+    background-color: #4A4A4A;
 }
 
 button:active {
-    background-color: #656565;
+    background-color: #626262;
 }
 
 /* Inputs */

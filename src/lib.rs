@@ -17,7 +17,7 @@ Multiplication WebGL. If not, see <https://www.gnu.org/licenses/>.
 #![allow(unused_parens)]
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{Window, Document, HtmlCanvasElement, WebGlUniformLocation, WebGl2RenderingContext, WebGlShader, WebGlProgram};
+use web_sys::{Window, Document, HtmlCanvasElement, WebGl2RenderingContext, WebGlShader, WebGlProgram};
 
 // Struct declarations
 
@@ -60,9 +60,6 @@ pub struct Canvas {
     rect_program: WebGlProgram,
     shape: Shape,
     bg: Color,
-    u_point_color_location: WebGlUniformLocation,
-    u_line_color_location: WebGlUniformLocation,
-    u_outline_color_location: WebGlUniformLocation,
     enable_outline: bool
 }
 
@@ -105,11 +102,6 @@ impl Canvas {
         let rect_program: WebGlProgram = link_program(&gl, &rect_shader, &color_shader).map_err(|e: String| JsValue::from_str(&e))?;
         gl.use_program(Some(&point_program)); // call from drawing function instead
 
-        // Save uniform color location so that we can change the foreground color later easily
-        let u_point_color_location: WebGlUniformLocation = gl.get_uniform_location(&point_program, "u_color").ok_or("Failed to find u_color uniform")?;
-        let u_line_color_location: WebGlUniformLocation = gl.get_uniform_location(&line_program, "u_color").ok_or("Failed to find u_color uniform")?;
-        let u_outline_color_location: WebGlUniformLocation = gl.get_uniform_location(&outline_program, "u_color").ok_or("Failed to find u_color uniform")?;
-
         // Adjust to window size
         let dpr: f64 = window.device_pixel_ratio();
         let visual_viewport: js_sys::Object = window.get("visualViewport").unwrap();
@@ -150,7 +142,7 @@ impl Canvas {
         };
 
         // Return self
-        return Ok(Canvas {
+        let canvas_obj: Canvas = Canvas {
             context: gl,
             point_program: point_program,
             line_program: line_program,
@@ -162,11 +154,12 @@ impl Canvas {
                 g: 24,
                 b: 24
             },
-            u_point_color_location: u_point_color_location,
-            u_line_color_location: u_line_color_location,
-            u_outline_color_location: u_outline_color_location,
             enable_outline: false
-        });
+        };
+
+        canvas_obj.set_fg_color();
+
+        return Ok(canvas_obj);
     }
 
 
@@ -176,7 +169,6 @@ impl Canvas {
 
     pub fn draw(&self) {
         self.clear();
-        self.update_fg_color();
         if (self.enable_outline) {
             self.draw_outline();
         }
@@ -356,19 +348,19 @@ impl Canvas {
         self.context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
     }
 
-    fn update_fg_color(&self) {
+    fn set_fg_color(&self) {
         let red: f32 = normalize_u8_to_1(self.shape.color.r);
         let green: f32 = normalize_u8_to_1(self.shape.color.g);
         let blue: f32 = normalize_u8_to_1(self.shape.color.b);
 
         self.context.use_program(Some(&self.point_program));
-        self.context.uniform3f(Some(&self.u_point_color_location), red, green, blue);
+        self.context.uniform3f(Some(&self.context.get_uniform_location(&self.point_program, "u_color").expect("Error")), red, green, blue);
 
         self.context.use_program(Some(&self.line_program));
-        self.context.uniform3f(Some(&self.u_line_color_location), red, green, blue);
+        self.context.uniform3f(Some(&self.context.get_uniform_location(&self.line_program, "u_color").expect("Error")), red, green, blue);
 
         self.context.use_program(Some(&self.outline_program));
-        self.context.uniform3f(Some(&self.u_outline_color_location), red, green, blue);
+        self.context.uniform3f(Some(&self.context.get_uniform_location(&self.outline_program, "u_color").expect("Error")), red, green, blue);
 
         self.context.use_program(Some(&self.rect_program));
         self.context.uniform3f(Some(&self.context.get_uniform_location(&self.rect_program, "u_color").expect("Error")), red, green, blue);
@@ -376,6 +368,12 @@ impl Canvas {
 
     fn draw_outline(&self) {
         self.context.use_program(Some(&self.outline_program));
+
+        let fg_red: f32 = normalize_u8_to_1(self.shape.color.r);
+        let fg_green: f32 = normalize_u8_to_1(self.shape.color.g);
+        let fg_blue: f32 = normalize_u8_to_1(self.shape.color.b);
+        self.context.uniform3f(Some(&self.context.get_uniform_location(&self.outline_program, "u_color").expect("Error")), fg_red, fg_green, fg_blue);
+
         self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_segments").expect("Error")), self.shape.outline_segments as f32);
         self.context.uniform2f(Some(&self.context.get_uniform_location(&self.outline_program, "u_center").expect("Error")), self.shape.pos.x, self.shape.pos.y);
 
@@ -396,7 +394,7 @@ impl Canvas {
         let bg_red: f32 = normalize_u8_to_1(24);
         let bg_green: f32 = normalize_u8_to_1(24);
         let bg_blue: f32 = normalize_u8_to_1(24);
-        self.context.uniform3f(Some(&self.u_outline_color_location), bg_red, bg_green, bg_blue);
+        self.context.uniform3f(Some(&self.context.get_uniform_location(&self.outline_program, "u_color").expect("Error")), bg_red, bg_green, bg_blue);
 
         self.context.uniform1f(Some(&self.context.get_uniform_location(&self.outline_program, "u_radius").expect("Error")), self.shape.r - self.shape.outline_width / 2.0);
         self.context.draw_arrays(WebGl2RenderingContext::TRIANGLE_FAN, 0, self.shape.outline_segments + 2);
