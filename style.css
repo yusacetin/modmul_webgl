@@ -66,12 +66,34 @@ label {
 .panel_row {
     margin-top: 10px;
     margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+
+.panel_row:first-child {
+    margin-top: 0;
+}
+
+.panel_row:last-child {
+    margin-bottom: 0;
+}
+
+.fill_row {
+    flex: 1;
+}
+
+.panel_row_group {
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 /* By ID */
 
 #control_panel_wrapper {
     position: absolute;
+    margin-top: 0;
 }
 
 #show_button {
@@ -101,7 +123,7 @@ label {
 /* Buttons */
 
 button {
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-family: "Noto Sans", sans-serif;
     border-radius: 9px;
     background-color: #3B3B3B;
@@ -124,9 +146,7 @@ button:active {
 /* Inputs */
 
 input[type="number"] {
-    font-size: 1.2em;
-    width: 6em;
-    max-width: 6em;
+    font-size: 1.1em;
     border-radius: 8px;
     padding: 2px 6px;
     margin-left: 5px;
