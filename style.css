@@ -82,6 +82,9 @@ label {
 
 .fill_row {
     flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .panel_row_group {
@@ -94,6 +97,7 @@ label {
 #control_panel_wrapper {
     position: absolute;
     margin-top: 0;
+    width: 23em;
 }
 
 #show_button {
