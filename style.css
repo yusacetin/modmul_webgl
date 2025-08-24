@@ -66,11 +66,7 @@ label {
 .panel_row {
     margin-top: 10px;
     margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
 }
-
 
 .panel_row:first-child {
     margin-top: 0;
@@ -78,18 +74,6 @@ label {
 
 .panel_row:last-child {
     margin-bottom: 0;
-}
-
-.fill_row {
-    flex: 1;
-    min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-}
-
-.panel_row_group {
-    margin-top: 10px;
-    margin-bottom: 10px;
 }
 
 /* By ID */
@@ -159,6 +143,7 @@ input[type="number"] {
     background-color: #3B3B3B;
     color: #FAFAFA;
     font-family: "Noto Sans", sans-serif;
+    max-width: 10em;
 }
 
 input[type="number"]:focus {
